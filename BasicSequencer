@@ -1,0 +1,137 @@
+#pragma strict
+/*The MIT License (MIT)
+
+Copyright (c)2015 Rui Miguel AKA Woozy Bytes https://github.com/WoozyBytes
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE*/
+
+var bpm : int = 120;
+var testSample : AudioClip ; // put a short sample here like a kick drum or a snare
+var audioSource : AudioSource; // Assign an audioSource here
+var enableLoop : boolean; 
+private var beatsPerBar : int = 4 ;
+private var stepsPerBeat : int = 4 ;
+private var steps : boolean[];
+
+function Start()
+{
+	steps = new boolean[16]; // Create the steps
+}
+function CreateLoopNow (){ // if we call Create Loop Directly unity freezes so we use this
+	CreateLoop();
+}
+function CreateLoop (){
+	var numOfChannels : int = testSample.channels ;
+	// Set Sample Rate
+	var clipSampleRate: int = testSample.frequency ;
+	// Calculate num of samples per bar and samples per step 
+    var oneBarInSamples : int  = (((60.0f/bpm) * clipSampleRate) * (beatsPerBar*1.0f))  * numOfChannels;
+	var samplesPerStep : int = (oneBarInSamples/ beatsPerBar) / stepsPerBeat ;
+    // Create float array for the loop data the size on one bar in samples 
+	var loopData : float[] = new float[oneBarInSamples];
+	// this is so we know where each step starts in the float array 
+	var stepsSampleStart : int[] = new int[16];
+	for( var stpSmplSt = 0 ;  stpSmplSt < stepsSampleStart.Length ; stpSmplSt ++){
+	  stepsSampleStart[stpSmplSt] = stpSmplSt * samplesPerStep;
+	}
+	// Get data from the Sample
+	var sampleData : float[] = new float[testSample.samples];
+	testSample.GetData(sampleData,0);
+	// Loop through the steps to find which are on
+	for (var stpN = 0 ; stpN < steps.Length; stpN ++){
+		if( steps[stpN] == true ){
+			// this step is on so we put the samples from the sample in the float array
+			// at the right position 
+			for(  var smplN = 0 ; smplN < testSample.samples ; smplN ++){
+				if( stepsSampleStart[stpN] + smplN < loopData.Length)
+				{
+					 loopData[stepsSampleStart[stpN]+smplN] = sampleData[smplN];
+				}
+			}
+		}
+	}
+	// Create an audio Clip with the given Length in samples , sample rate and num of channels
+	var loopClip :  AudioClip ;
+	loopClip = AudioClip.Create("TestClip", oneBarInSamples , numOfChannels ,clipSampleRate , false);
+	// apply the data to the clip
+	loopClip.SetData(loopData,0);
+	// assign the clip to the audio source 
+	audioSource.clip = loopClip;
+	audioSource.loop = enableLoop ;
+}
+
+function PlayClip(){
+	if(audioSource.clip!= null)
+		audioSource.Play();
+}
+function PauseClip(){
+	if(audioSource.clip!= null)
+		audioSource.Pause();
+}
+function StopClip(){
+	if(audioSource.clip!= null)
+		audioSource.Stop();
+}
+
+function OnGUI(){
+
+	for( var stpNum = 0 ; stpNum  < steps.Length; stpNum ++)
+	{
+		if(steps[stpNum] == true)
+			GUI.backgroundColor = Color.yellow;
+		else
+			GUI.backgroundColor = Color.grey;
+		if( GUI.Button(Rect(stpNum* Screen.width/steps.Length,64,Screen.width/steps.Length,Screen.width/steps.Length),(stpNum+1).ToString())){
+			if(steps[stpNum] == true)
+			{
+				steps[stpNum] = false;
+				}
+			else{
+				steps[stpNum] = true;
+			}
+		}
+	}
+	if( GUI.Button(Rect(0,0,Screen.width/4,32),"CreateLoop")){
+		if(testSample!= null ){
+			if(steps.Length == 16){
+				if(audioSource != null ){
+					CreateLoopNow();
+				}else{
+					gameObject.AddComponent.<AudioSource>();
+					audioSource = gameObject.GetComponent.<AudioSource>();
+					audioSource.loop = enableLoop ;
+					CreateLoopNow();
+				}
+			}else{
+				Debug.Log("Steps Must be 16 ");
+			}
+		}else{
+			Debug.Log("AudioClip not Assigned Please Assign A clip first ");
+		}
+	}
+	if( GUI.Button(Rect(1*Screen.width/4,0,Screen.width/4,32),"Play")){
+		PlayClip();
+	}
+	if( GUI.Button(Rect(2*Screen.width/4,0,Screen.width/4,32),"Pause")){
+		PauseClip();
+	}
+	if( GUI.Button(Rect(3*Screen.width/4,0,Screen.width/4,32), "Stop")){
+		StopClip();
+	}
+}
